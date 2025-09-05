@@ -56,9 +56,12 @@ async function sendMessageWithWebApp() {
         const errorDetails = {};
         // Виводимо більш детальну інформацію про помилку від API Telegram
         if (error.response && error.response.body) {
-            const errorBody = JSON.parse(error.response.body);
-            errorDetails.code = errorBody.error_code;
-            errorDetails.description = errorBody.description;
+            // Тіло відповіді може бути рядком (потребує парсингу) або вже об'єктом.
+            const errorBody = typeof error.response.body === 'string'
+                ? JSON.parse(error.response.body)
+                : error.response.body;
+            errorDetails.code = errorBody.error_code || 'N/A';
+            errorDetails.description = errorBody.description || 'No description';
         } else {
             errorDetails.message = error.message;
         }
