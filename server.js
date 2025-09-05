@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const pinoHttp = require('pino-http');
+const logger = require('./logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +24,7 @@ let scheduleContent = {
 // Налаштування сервера
 app.use(cors()); // Дозволяє запити з інших доменів (важливо для GitHub Pages)
 app.use(bodyParser.json()); // Дозволяє читати JSON з тіла запиту
+app.use(pinoHttp({ logger })); // Додаємо middleware для логування HTTP запитів
 
 /**
  * Middleware для валідації запиту від Telegram
@@ -45,6 +48,7 @@ const validateTelegramAuth = (req, res, next) => {
     const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
     if (calculatedHash !== hash) {
+        logger.warn({ remoteAddress: req.ip, userAgent: req.headers['user-agent'] }, 'Telegram authentication failed: invalid hash');
         return res.status(403).json({ message: 'Authentication failed' });
     }
 
@@ -53,13 +57,21 @@ const validateTelegramAuth = (req, res, next) => {
 };
 
 /**
+ * Health check / Root route
+ */
+app.get('/', (req, res) => {
+    // Проста відповідь для перевірки, що сервер працює
+    res.status(200).json({ status: 'ok', message: 'API server is running.' });
+});
+
+/**
  * Головний ендпоінт для отримання даних.
  */
 app.post('/api/data', validateTelegramAuth, (req, res) => {
     const userId = req.user.id;
     const isAdmin = ADMIN_IDS.includes(String(userId));
 
-    console.log(`Валідований запит від User ID: ${userId}, isAdmin: ${isAdmin}`);
+    logger.info({ userId, isAdmin }, 'Validated data request received');
 
     res.json({
         ...scheduleContent,
@@ -76,6 +88,7 @@ app.post('/api/update', validateTelegramAuth, (req, res) => {
 
     // Перевіряємо, чи є користувач адміном
     if (!ADMIN_IDS.includes(String(userId))) {
+        logger.warn({ userId }, 'Forbidden attempt to update content');
         return res.status(403).json({ message: 'Доступ заборонено' });
     }
 
@@ -83,11 +96,11 @@ app.post('/api/update', validateTelegramAuth, (req, res) => {
     scheduleContent.title = title;
     scheduleContent.details = details;
 
-    console.log(`Контент оновлено адміністратором ${userId}`);
+    logger.info({ userId }, 'Content updated by admin');
 
     res.json({ message: 'Дані успішно оновлено!', ...scheduleContent });
 });
 
 app.listen(PORT, () => {
-    console.log(`Сервер запущено на порті ${PORT}`);
+    logger.info(`Server started on port ${PORT}`);
 });

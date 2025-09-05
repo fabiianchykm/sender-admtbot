@@ -5,6 +5,7 @@ require('dotenv').config();
 
 // Імпортуємо бібліотеку
 const TelegramBot = require('node-telegram-bot-api');
+const logger = require('./logger');
 
 // --- ВАШІ НАЛАШТУВАННЯ ---
 
@@ -44,24 +45,24 @@ async function sendMessageWithWebApp() {
     try {
         // Надсилаємо повідомлення в канал
         const sentMessage = await bot.sendMessage(CHANNEL_ID, text, options);
-        console.log(`✅ Повідомлення успішно надіслано в канал ${CHANNEL_ID}`);
-        console.log(`   ID повідомлення: ${sentMessage.message_id}`);
+        logger.info({ channel: CHANNEL_ID, messageId: sentMessage.message_id }, 'Message sent successfully to channel');
 
         // Опціонально: закріпити повідомлення.
         // Для цього бот повинен мати права адміністратора "Закріплювати повідомлення".
         // await bot.pinChatMessage(CHANNEL_ID, sentMessage.message_id);
-        // console.log('   Повідомлення було успішно закріплено.');
+        // logger.info({ messageId: sentMessage.message_id }, 'Message pinned successfully.');
 
     } catch (error) {
-        console.error('❌ Сталася помилка під час надсилання повідомлення:');
+        const errorDetails = {};
         // Виводимо більш детальну інформацію про помилку від API Telegram
         if (error.response && error.response.body) {
             const errorBody = JSON.parse(error.response.body);
-            console.error(`   [${errorBody.error_code}] ${errorBody.description}`);
+            errorDetails.code = errorBody.error_code;
+            errorDetails.description = errorBody.description;
         } else {
-            console.error(error.message);
+            errorDetails.message = error.message;
         }
-        console.error('\n   Перевірте, чи правильно вказано BOT_TOKEN, CHANNEL_ID та чи додано бота в канал як адміністратора.');
+        logger.error({ err: errorDetails }, 'Failed to send message. Check BOT_TOKEN, CHANNEL_ID, and bot admin permissions.');
     }
 }
 
