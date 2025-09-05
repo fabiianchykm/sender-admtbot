@@ -59,6 +59,25 @@
         .hidden {
             display: none;
         }
+
+        .schedule-list {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .schedule-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .schedule-list li:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -66,7 +85,7 @@
     <div class="container">
         <h1 id="schedule-title">Завантаження розкладу...</h1>
         <!-- Для звичайних користувачів -->
-        <pre id="schedule-details"></pre>
+        <ul id="schedule-details-list" class="schedule-list"></ul>
 
         <div id="user-info">Завантаження даних користувача...</div>
 
@@ -101,6 +120,17 @@
                 document.getElementById('schedule-title').innerText = 'Помилка доступу';
             }
 
+            function renderScheduleDetails(details) {
+                const scheduleList = document.getElementById('schedule-details-list');
+                scheduleList.innerHTML = ''; // Очищуємо попередній вміст
+                const scheduleItems = details.split('\n').filter(item => item.trim() !== '');
+                scheduleItems.forEach(itemText => {
+                    const li = document.createElement('li');
+                    li.textContent = itemText;
+                    scheduleList.appendChild(li);
+                });
+            }
+
             async function loadSchedule() {
                 try {
                     const response = await fetch(`${BACKEND_URL}/api/data`, {
@@ -109,9 +139,10 @@
                         body: JSON.stringify({ initData: initData })
                     });
                     const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Failed to load data');
 
                     document.getElementById('schedule-title').innerText = data.title;
-                    document.getElementById('schedule-details').innerText = data.details;
+                    renderScheduleDetails(data.details);
 
                     // Якщо користувач - адмін, показуємо панель редагування
                     if (data.isAdmin) {
@@ -143,7 +174,7 @@
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.message);
 
-                    document.getElementById('schedule-details').innerText = newDetails;
+                    renderScheduleDetails(newDetails);
                     alert('Розклад успішно оновлено!');
                 } catch (error) {
                     console.error('Помилка збереження:', error);
