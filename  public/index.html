@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Мій Міні Додаток</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--tg-theme-text-color, #222222);
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container, .admin-panel {
+            text-align: center;
+        }
+
+        #user-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            text-align: left;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            background-color: var(--tg-theme-button-color, #54a0ff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--tg-theme-hint-color, #dddddd);
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #222222);
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 id="schedule-title">Завантаження розкладу...</h1>
+        <!-- Для звичайних користувачів -->
+        <pre id="schedule-details"></pre>
+
+        <div id="user-info">Завантаження даних користувача...</div>
+
+        <!-- Панель для адміністратора, початково прихована -->
+        <div id="admin-panel" class="admin-panel hidden">
+            <h3>Редагування розкладу</h3>
+            <textarea id="details-editor"></textarea>
+            <button id="save-button">Зберегти зміни</button>
+        </div>
+
+        <button id="close-button">Закрити додаток</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+
+            // URL вашого бекенду (після розміщення на Render)
+            const BACKEND_URL = 'https://my-schedule-backend.onrender.com'; // <-- ВСТАВТЕ СЮДИ URL З RENDER
+
+            const user = tg.initDataUnsafe?.user; // Для привітання
+            const initData = tg.initData; // Для безпечної автентифікації
+            const userInfoDiv = document.getElementById('user-info');
+
+            if (user) {
+                userInfoDiv.innerHTML = `Привіт, <strong>${user.first_name || ''} ${user.last_name || ''}</strong>! (@${user.username || 'N/A'})`;
+                loadSchedule();
+            } else {
+                userInfoDiv.innerText = 'Не вдалося отримати дані користувача.';
+                document.getElementById('schedule-title').innerText = 'Помилка доступу';
+            }
+
+            async function loadSchedule() {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/data`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: initData })
+                    });
+                    const data = await response.json();
+
+                    document.getElementById('schedule-title').innerText = data.title;
+                    document.getElementById('schedule-details').innerText = data.details;
+
+                    // Якщо користувач - адмін, показуємо панель редагування
+                    if (data.isAdmin) {
+                        document.getElementById('admin-panel').classList.remove('hidden');
+                        document.getElementById('details-editor').value = data.details;
+                    }
+                } catch (error) {
+                    console.error('Помилка завантаження розкладу:', error);
+                    document.getElementById('schedule-title').innerText = 'Не вдалося завантажити розклад';
+                }
+            }
+
+            async function saveSchedule() {
+                const newDetails = document.getElementById('details-editor').value;
+                const saveButton = document.getElementById('save-button');
+                saveButton.disabled = true;
+                saveButton.innerText = 'Збереження...';
+
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: initData,
+                            title: document.getElementById('schedule-title').innerText,
+                            details: newDetails
+                        })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.message);
+
+                    document.getElementById('schedule-details').innerText = newDetails;
+                    alert('Розклад успішно оновлено!');
+                } catch (error) {
+                    console.error('Помилка збереження:', error);
+                    alert(`Помилка: ${error.message}`);
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.innerText = 'Зберегти зміни';
+                }
+            }
+
+            document.getElementById('save-button').addEventListener('click', saveSchedule);
+            document.getElementById('close-button').addEventListener('click', () => tg.close());
+        });
+    </script>
+</body>
+</html>
