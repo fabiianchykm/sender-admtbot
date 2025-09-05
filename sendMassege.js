@@ -20,6 +20,12 @@ const MINI_APP_URL = process.env.MINI_APP_URL;
 
 // --- КІНЕЦЬ НАЛАШТУВАНЬ ---
 
+// Перевірка, чи всі необхідні змінні завантажено
+if (!BOT_TOKEN || !CHANNEL_ID || !MINI_APP_URL) {
+    logger.fatal('Missing required environment variables (BOT_TOKEN, CHANNEL_ID, MINI_APP_URL). Check your .env file.');
+    process.exit(1); // Зупиняємо виконання, якщо конфігурація неповна
+}
+
 // Створюємо екземпляр бота. Ми не будемо запускати його в режимі опитування,
 // оскільки нам потрібно лише надіслати одне повідомлення.
 const bot = new TelegramBot(BOT_TOKEN);
